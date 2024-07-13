@@ -1,0 +1,8 @@
+public class UrlMapping {
+    private String shortUrl;
+    private String longUrl;
+    private LocalDateTime createdAt;
+    private LocalDateTime expiresAt;
+
+    // getters and setters
+}
