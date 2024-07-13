@@ -1,0 +1,66 @@
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.NoSuchElementException;
+
+@RestController
+@RequestMapping("/api")
+public class UrlMappingController {
+
+    @Autowired
+    private UrlMappingService service;
+
+    @PostMapping("/shorten")
+    public String shortenUrl(@RequestBody String longUrl) {
+        try {
+            return service.shortenUrl(longUrl);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not shorten URL", e);
+        }
+    }
+
+    @PostMapping("/update")
+    public boolean updateLongUrl(@RequestBody UpdateUrlRequest request) {
+        try {
+            return service.updateLongUrl(request.getShortUrl(), request.getNewLongUrl());
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not update URL", e);
+        }
+    }
+
+    @GetMapping("/get")
+    public String getLongUrl(@RequestParam String shortUrl) {
+        try {
+            return service.getLongUrl(shortUrl);
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found", e);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not retrieve URL", e);
+        }
+    }
+
+    @PostMapping("/update-expiry")
+    public boolean updateExpiry(@RequestBody UpdateExpiryRequest request) {
+        try {
+            return service.updateExpiry(request.getShortUrl(), request.getDaysToAdd());
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not update expiry", e);
+        }
+    }
+
+    @GetMapping("/{shortenString}")
+    public void redirectToFullUrl(HttpServletResponse response, @PathVariable String shortenString) {
+        try {
+            String longUrl = service.getLongUrl(shortenString);
+            response.sendRedirect(longUrl);
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found", e);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not redirect to the full URL", e);
+        }
+    }
+}
