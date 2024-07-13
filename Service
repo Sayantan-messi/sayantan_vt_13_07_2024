@@ -1,0 +1,100 @@
+import com.opencsv.CSVReader;
+import com.opencsv.CSVWriter;
+import org.springframework.stereotype.Service;
+
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class UrlMappingService {
+
+    private static final String CSV_FILE = "urls.csv";
+
+    public String shortenUrl(String longUrl) throws IOException {
+        String shortUrl = generateShortUrl(longUrl);
+        LocalDateTime createdAt = LocalDateTime.now();
+        LocalDateTime expiresAt = createdAt.plusMonths(10);
+        
+        try (CSVWriter writer = new CSVWriter(new FileWriter(CSV_FILE, true))) {
+            String[] record = {shortUrl, longUrl, createdAt.toString(), expiresAt.toString()};
+            writer.writeNext(record);
+        }
+        
+        return shortUrl;
+    }
+
+    public String getLongUrl(String shortUrl) throws IOException {
+        try (CSVReader csvReader = new CSVReader(new FileReader(CSV_FILE))) {
+            String[] values;
+            while ((values = csvReader.readNext()) != null) {
+                if (values[0].equals(shortUrl)) {
+                    LocalDateTime expiresAt = LocalDateTime.parse(values[3]);
+                    if (expiresAt.isAfter(LocalDateTime.now())) {
+                        return values[1];
+                    } else {
+                        throw new NoSuchElementException("URL has expired");
+                    }
+                }
+            }
+        }
+        throw new NoSuchElementException("URL not found");
+    }
+
+    public boolean updateLongUrl(String shortUrl, String newLongUrl) throws IOException {
+        List<String[]> allUrls = new ArrayList<>();
+        boolean updated = false;
+
+        try (CSVReader csvReader = new CSVReader(new FileReader(CSV_FILE))) {
+            String[] values;
+            while ((values = csvReader.readNext()) != null) {
+                if (values[0].equals(shortUrl)) {
+                    values[1] = newLongUrl;
+                    updated = true;
+                }
+                allUrls.add(values);
+            }
+        }
+
+        if (updated) {
+            try (CSVWriter writer = new CSVWriter(new FileWriter(CSV_FILE))) {
+                writer.writeAll(allUrls);
+            }
+        }
+        
+        return updated;
+    }
+
+    public boolean updateExpiry(String shortUrl, int daysToAdd) throws IOException {
+        List<String[]> allUrls = new ArrayList<>();
+        boolean updated = false;
+
+        try (CSVReader csvReader = new CSVReader(new FileReader(CSV_FILE))) {
+            String[] values;
+            while ((values = csvReader.readNext()) != null) {
+                if (values[0].equals(shortUrl)) {
+                    LocalDateTime newExpiry = LocalDateTime.parse(values[3]).plusDays(daysToAdd);
+                    values[3] = newExpiry.toString();
+                    updated = true;
+                }
+                allUrls.add(values);
+            }
+        }
+
+        if (updated) {
+            try (CSVWriter writer = new CSVWriter(new FileWriter(CSV_FILE))) {
+                writer.writeAll(allUrls);
+            }
+        }
+        
+        return updated;
+    }
+
+    private String generateShortUrl(String longUrl) {
+        return UUID.randomUUID().toString().substring(0, 6);
+    }
+}
